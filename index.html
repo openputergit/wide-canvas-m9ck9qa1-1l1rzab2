@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlgoTrader Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        .trade-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .chart-container {
+            height: 400px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 min-h-screen">
+    <!-- Login Section -->
+    <div id="loginSection" class="flex min-h-screen items-center justify-center">
+        <div class="bg-white p-8 rounded-lg shadow-lg w-96">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-800">AlgoTrader Pro</h1>
+                <p class="text-gray-600 mt-2">Login to start trading</p>
+            </div>
+            <div id="g_id_onload"
+                data-client_id="YOUR_GOOGLE_CLIENT_ID"
+                data-callback="handleCredentialResponse">
+            </div>
+            <div class="flex justify-center">
+                <div id="googleBtn" class="g_id_signin" data-type="standard"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trading Dashboard -->
+    <div id="tradingDashboard" class="hidden p-4">
+        <!-- Header -->
+        <nav class="bg-slate-800 p-4 rounded-lg mb-4">
+            <div class="flex justify-between items-center">
+                <h1 class="text-white text-2xl font-bold">AlgoTrader Pro</h1>
+                <div class="flex items-center gap-4">
+                    <span id="userEmail" class="text-white"></span>
+                    <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <!-- Chart Section -->
+            <div class="lg:col-span-2 bg-slate-800 p-4 rounded-lg">
+                <div id="tradingChart" class="chart-container"></div>
+            </div>
+
+            <!-- Trading Controls -->
+            <div class="space-y-4">
+                <!-- Market Data -->
+                <div class="trade-card p-4 rounded-lg">
+                    <h2 class="text-white text-xl mb-4">Market Data</h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="text-green-400">
+                            <p>Current Price</p>
+                            <p class="text-2xl" id="currentPrice">$0.00</p>
+                        </div>
+                        <div class="text-blue-400">
+                            <p>24h Change</p>
+                            <p class="text-2xl" id="priceChange">0.00%</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trading Form -->
+                <div class="trade-card p-4 rounded-lg">
+                    <h2 class="text-white text-xl mb-4">Place Trade</h2>
+                    <form id="tradeForm" class="space-y-4">
+                        <div>
+                            <label class="text-white">Amount</label>
+                            <input type="number" id="tradeAmount" class="w-full p-2 rounded bg-slate-700 text-white" placeholder="Enter amount">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <button type="button" onclick="placeTrade('buy')" class="bg-green-500 text-white p-2 rounded hover:bg-green-600">
+                                Buy
+                            </button>
+                            <button type="button" onclick="placeTrade('sell')" class="bg-red-500 text-white p-2 rounded hover:bg-red-600">
+                                Sell
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Position Summary -->
+                <div class="trade-card p-4 rounded-lg">
+                    <h2 class="text-white text-xl mb-4">Positions</h2>
+                    <div id="positions" class="space-y-2">
+                        <!-- Positions will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let isLoggedIn = false;
+        let userData = null;
+
+        // Handle Google Sign-in
+        function handleCredentialResponse(response) {
+            const credential = response.credential;
+            const payload = JSON.parse(atob(credential.split('.')[1]));
+            
+            userData = {
+                email: payload.email,
+                name: payload.name
+            };
+            
+            isLoggedIn = true;
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('tradingDashboard').classList.remove('hidden');
+            document.getElementById('userEmail').textContent = userData.email;
+            
+            // Initialize trading data after login
+            initializeTradingData();
+        }
+
+        function logout() {
+            isLoggedIn = false;
+            userData = null;
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('tradingDashboard').classList.add('hidden');
+        }
+
+        // Trading functionality
+        function initializeTradingData() {
+            // Sample data for the chart
+            const trace = {
+                x: Array.from({length: 100}, (_, i) => new Date(Date.now() - (100-i)*60000)),
+                y: Array.from({length: 100}, () => Math.random() * 1000 + 30000),
+                type: 'scatter',
+                name: 'BTC/USD'
+            };
+
+            const layout = {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: {
+                    color: '#fff'
+                },
+                margin: {
+                    l: 50,
+                    r: 50,
+                    t: 30,
+                    b: 50
+                },
+                xaxis: {
+                    gridcolor: '#444'
+                },
+                yaxis: {
+                    gridcolor: '#444'
+                }
+            };
+
+            Plotly.newPlot('tradingChart', [trace], layout);
+
+            // Update price data
+            updatePriceData();
+            setInterval(updatePriceData, 5000);
+        }
+
+        function updatePriceData() {
+            const price = Math.random() * 1000 + 30000;
+            const change = (Math.random() * 10 - 5).toFixed(2);
+            
+            document.getElementById('currentPrice').textContent = `$${price.toFixed(2)}`;
+            document.getElementById('priceChange').textContent = `${change}%`;
+            document.getElementById('priceChange').className = 
+                change >= 0 ? 'text-2xl text-green-400' : 'text-2xl text-red-400';
+        }
+
+        function placeTrade(type) {
+            const amount = document.getElementById('tradeAmount').value;
+            if (!amount || amount <= 0) {
+                alert('Please enter a valid amount');
+                return;
+            }
+
+            const position = {
+                type: type,
+                amount: amount,
+                price: document.getElementById('currentPrice').textContent,
+                timestamp: new Date().toLocaleString()
+            };
+
+            addPosition(position);
+            document.getElementById('tradeAmount').value = '';
+        }
+
+        function addPosition(position) {
+            const positionsDiv = document.getElementById('positions');
+            const positionElement = document.createElement('div');
+            positionElement.className = `p-2 ${position.type === 'buy' ? 'bg-green-900' : 'bg-red-900'} rounded`;
+            positionElement.innerHTML = `
+                <div class="flex justify-between">
+                    <span class="text-white">${position.type.toUpperCase()}</span>
+                    <span class="text-white">${position.amount} USD</span>
+                </div>
+                <div class="text-gray-300 text-sm">${position.price} @ ${position.timestamp}</div>
+            `;
+            positionsDiv.prepend(positionElement);
+        }
+
+        // Initialize with sample data
+        if (isLoggedIn) {
+            initializeTradingData();
+        }
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
